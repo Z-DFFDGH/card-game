@@ -1,0 +1,187 @@
+// /home/djx/game/android/build.gradle
+// android 模块 = 最终产出 APK。
+//
+// SDK 版本说明（都是实测，不是猜的）：
+//   targetSdk 35 / minSdk 21 —— 按需求设定
+//   compileSdk 37 —— 你机器上 ~/Android/Sdk/platforms 里【唯一】装了的平台。
+//     compileSdk 只要 >= targetSdk 就行，所以 37 配 targetSdk 35 是合法的。
+//     想改成 compileSdk 35 的话，得先装 android-35 平台；而你没有 cmdline-tools
+//     （没有 sdkmanager），只能从 Android Studio 的 SDK Manager 图形界面装。
+
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.game.cardgame'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId 'com.game.cardgame'
+        minSdk 21
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // debug 签名占位。
+    // 现在是空的，AGP 会自动用默认调试签名
+    // （自动生成 ~/.android/debug.keystore，storePassword/keyPassword 都是 "android"）。
+    // 以后要打正式包，照下面的样子补一个 release 配置，再把 buildTypes.release
+    // 的 signingConfig 指过去：
+    //
+    //   release {
+    //       storeFile file('../release.jks')
+    //       storePassword '你的密码'
+    //       keyAlias '你的别名'
+    //       keyPassword '你的密码'
+    //   }
+    signingConfigs {
+        debug {
+        }
+
+        // 正式签名。密钥文件在工程的 android/keystore/cardgame.jks，【跟工程走】——
+        // 这样不管谁在哪台机器上打这个包，签名都一样，能互相覆盖安装。
+        // （用系统默认的调试密钥就不行：每台机器的调试密钥都不一样。）
+        //
+        // 提醒：密码写在构建脚本里只适合自己玩。真要上架商店，
+        // 应该把密码放到 ~/.gradle/gradle.properties 或环境变量里，不要进版本库。
+        release {
+            storeFile rootProject.file('android/keystore/cardgame.jks')
+            storePassword 'cardgame123'
+            keyAlias 'cardgame'
+            keyPassword 'cardgame123'
+        }
+    }
+
+    sourceSets {
+        main {
+            // 按你指定的路径：清单放在 android/AndroidManifest.xml（不是默认的
+            // src/main/AndroidManifest.xml），所以这里要显式指一下。
+            manifest.srcFile 'AndroidManifest.xml'
+            // libGDX 约定：素材放 android/assets，桌面模块也直接读这个目录
+            assets.srcDirs = ['assets']
+        }
+    }
+
+    buildTypes {
+        release {
+            // 不开代码混淆/压缩：libGDX 这类库对反射敏感，
+            // 没在真机上完整验证过就开 R8，很容易出现"打包能过、一跑就崩"。
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += [
+                'META-INF/AL2.0',
+                'META-INF/LGPL2.1',
+                'META-INF/DEPENDENCIES',
+                'META-INF/LICENSE*',
+                'META-INF/NOTICE*',
+                'META-INF/*.kotlin_module'
+            ]
+        }
+    }
+
+    lint {
+        abortOnError false
+        // 正式包不跑 lint。两个原因：
+        //   1. 对这个工程没必要（lint 主要查 API 兼容性之类，我们自己清楚用了什么）；
+        //   2. lint 自己的一堆依赖在部分国内镜像上拉不到，会让 assembleRelease 直接失败。
+        checkReleaseBuilds false
+    }
+}
+
+configurations {
+    // 只用来装"带 .so 的 natives jar"，不会被打进 APK
+    natives
+}
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+
+    // 4 种 CPU 架构的原生库。真机通常是 arm64-v8a。
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
+    natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86"
+    natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-x86_64"
+}
+
+// ---------------------------------------------------------------------------
+// libGDX 的 natives 是"jar 里包着 .so"，AGP 不会自动解压，
+// 所以手动把每个 ABI 的 .so 摊到 src/main/jniLibs/<abi>/ 下。
+// 不做这一步，APK 里没有 .so，一启动就崩。
+// ---------------------------------------------------------------------------
+def abiList = ['armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64']
+def jniLibsDir = file('src/main/jniLibs')
+
+tasks.register('copyAndroidNatives') {
+    group = 'build'
+    description = '把各 ABI 的 libGDX 原生库从依赖 jar 里解出来，放进 src/main/jniLibs'
+
+    def jars = configurations.natives
+    inputs.files(jars)
+    outputs.dir(jniLibsDir)
+
+    doLast {
+        abiList.each { abi ->
+            def abiDir = new File(jniLibsDir, abi)
+            // 先清空再解压，否则上次构建的残留会混进来
+            delete(abiDir)
+            abiDir.mkdirs()
+        }
+        jars.files.each { jar ->
+            // 必须用 endsWith 精确匹配！
+            // 用 contains("natives-x86") 的话，"...-natives-x86_64.jar" 也会匹配上，
+            // 结果 x86_64 的库被解到 x86 目录里覆盖掉，x86 模拟器上直接崩。
+            def abi = abiList.find { abiName -> jar.name.endsWith("-natives-${abiName}.jar") }
+            if (abi == null) {
+                throw new GradleException("认不出这个 natives 依赖属于哪个 ABI：${jar.name}")
+            }
+            copy {
+                from zipTree(jar)
+                exclude 'META-INF/**'
+                into new File(jniLibsDir, abi)
+            }
+        }
+    }
+}
+
+tasks.named('preBuild').configure { dependsOn 'copyAndroidNatives' }
+tasks.matching { it.name.startsWith('merge') && it.name.endsWith('JniLibFolders') }
+        .configureEach { dependsOn 'copyAndroidNatives' }
+
+// ---------------------------------------------------------------------------
+// 一条命令出安卓安装包：
+//
+//     ./gradlew android:packageApk
+//
+// 打的是【正式签名】的 release 版（不是 debug 版），输出到
+// 打包成品/安卓版/卡牌对战.apk
+//
+// 想要上架 Google Play 用的 .aab（App Bundle）：
+//     ./gradlew android:bundleRelease
+// 产物在 android/build/outputs/bundle/release/
+// ---------------------------------------------------------------------------
+tasks.register('packageApk', Copy) {
+    group = 'distribution'
+    description = '打正式签名的 APK 并输出到 打包成品/安卓版/卡牌对战.apk'
+    dependsOn 'assembleRelease'
+    from layout.projectDirectory.file('build/outputs/apk/release/android-release.apk')
+    into rootProject.file('打包成品/安卓版')
+    rename { '卡牌对战.apk' }
+}

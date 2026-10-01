@@ -1,0 +1,23 @@
+# /home/djx/game/.gitignore
+.gradle/
+.gradle-home/
+.android-home/
+.tools/
+打包成品/
+.winbuild/
+build/
+*/build/
+android/build/
+desktop/build/
+core/build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 推送 GitHub 用的 SSH 私钥与 known_hosts（只留本机，绝不入库）
+.git-ssh/
+# 桌面环境自动生成的文件夹元数据
+.directory

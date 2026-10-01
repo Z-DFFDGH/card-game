@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- /home/djx/game/android/src/main/res/values/styles.xml -->
+<resources>
+    <!--
+        用系统自带主题，不引入 AndroidX 的 AppCompat，
+        这样就不用再加 androidx.appcompat 依赖，工程更简单。
+        Fullscreen + NoTitleBar：游戏画面自己全屏绘制，不要状态栏占位。
+    -->
+    <style name="GameTheme" parent="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

@@ -1,0 +1,53 @@
+// /home/djx/game/core/build.gradle
+// core 模块 = 游戏本体（逻辑 + 渲染），不含任何平台相关代码。
+// desktop 和 android 两个模块都依赖它。
+
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    // api 而不是 implementation：让依赖 core 的模块也能直接用 libGDX 的类
+    api "com.badlogicgames.gdx:gdx:$gdxVersion"
+
+    // gdx-freetype：运行时从字体文件生成字形。
+    // 为什么必须有：libGDX 自带的 BitmapFont 只含 ASCII，游戏里的中文全是空白方块；
+    // 而且如果字体文件缺失、或字体里没有需要的字形，不加这层就会在运行时崩。
+    api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+}
+
+// ---------------------------------------------------------------------------
+// 阶段 3 验收用：加载两个 JSON，打印条数与字段。
+// 纯命令行任务，不需要图形界面、不需要模拟器：
+//
+//     ./gradlew dumpJson
+//
+// workingDir 设成工程根目录，这样 JsonLoader.main 里默认的
+// "android/assets/data" 才找得到。
+// ---------------------------------------------------------------------------
+tasks.register('dumpJson', JavaExec) {
+    group = 'verification'
+    description = '加载 cards.json 和 characters.json，打印条数与字段'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.game.cardgame.util.JsonLoader'
+    workingDir = rootProject.projectDir
+}
+
+// ---------------------------------------------------------------------------
+// 阶段 4 验收：两个角色自动对打，逐行打印全过程。
+// 纯逻辑，不需要图形界面 / Android / 网络：
+//
+//     ./gradlew battleTest
+// ---------------------------------------------------------------------------
+tasks.register('battleTest', JavaExec) {
+    group = 'verification'
+    description = '跑阶段 4 的战斗逻辑自检（MainTest）'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.game.cardgame.battle.MainTest'
+    workingDir = rootProject.projectDir
+}

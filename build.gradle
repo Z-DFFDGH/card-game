@@ -1,0 +1,22 @@
+// /home/djx/game/build.gradle
+// 作用：根构建脚本，只声明插件版本，不在这里配置各模块。
+
+plugins {
+    // Android Gradle Plugin。
+    // 版本候选与实测依据：
+    //   9.3.3（已采用）—— Google Maven / 阿里云 google 镜像上的稳定版；
+    //                     下载 jar 检查字节码为 major 61 = Java 17，可用 JDK 17 构建
+    //   9.4.0         —— 备选，同为稳定版
+    //   9.3.0-rc* / 9.5.0-alpha* —— 不用，预览版
+    // 验证方法：如果这个版本和你的桌面 Gradle 不匹配，构建会直接报
+    //          "Minimum supported Gradle version is X"，照提示改
+    //          android/gradle/wrapper/gradle-wrapper.properties 里的版本即可。
+    id 'com.android.application' version '9.3.3' apply false
+}
+
+// 所有子模块共用的编译设置
+subprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'   // 源码里有中文注释，必须 UTF-8
+    }
+}

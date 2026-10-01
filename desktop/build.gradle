@@ -1,0 +1,85 @@
+// /home/djx/game/desktop/build.gradle
+// desktop 模块 = 桌面(LWJGL3)启动器。
+// 唯一用途：改完代码后 ./gradlew desktop:run 立刻开窗口看效果，
+// 不必等模拟器启动、也不必插手机。
+//
+// 这个模块不在你给的输出清单里，但之前你选了"加桌面模块"。
+// 不想要的话：删掉这个目录，同时把 settings.gradle 里的 include 'desktop' 删掉即可。
+
+plugins {
+    id 'application'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// 素材目录与 Android 共用同一份，避免两边不同步
+def assetsDir = rootProject.file('android/assets')
+
+application {
+    mainClass = 'com.game.cardgame.desktop.DesktopLauncher'
+}
+
+sourceSets.main.resources.srcDirs += [assetsDir]
+
+dependencies {
+    implementation project(':core')
+    implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    // natives-desktop 里才是真正的 .so，没有它运行时会报找不到库
+    runtimeOnly "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    runtimeOnly "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop"
+}
+
+// ---------------------------------------------------------------------------
+// 打包成"自带运行环境的独立程序"。
+//
+//     ./gradlew desktop:packageApp
+//
+// 输出到 dist/CardBattle/，里面有 bin/（可执行文件）和 lib/（程序 + 裁剪过的 JRE）。
+// 这个目录整个拷给别人、双击 bin/CardBattle 就能跑，对方不需要装 Java。
+//
+// 【在 Windows 上打 .exe】
+//   jpackage 【不支持跨平台打包】——在 Linux 上只能打 Linux 的包。
+//   所以想要真正的 .exe，把整个工程拷到 Windows 上，装好 JDK 17，
+//   在同一条命令里把名字改成 CardBattle.exe 需要的形式即可（见聊天里的说明）。
+//   或者用下面的 packageAppExe 任务（在 Windows 上跑）。
+// ---------------------------------------------------------------------------
+tasks.register('packageApp', Exec) {
+    group = 'distribution'
+    description = '用 jpackage 打成自带 JRE 的独立程序（输出到 打包成品/Linux版/）'
+    dependsOn 'installDist'
+
+    doFirst {
+        // jpackage 要求目标目录不存在，先清掉
+        delete rootProject.file('打包成品/CardBattle')
+        delete rootProject.file('打包成品/Linux版')
+    }
+
+    commandLine 'jpackage',
+            '--type', 'app-image',
+            '--name', 'CardBattle',
+            '--input', layout.projectDirectory.dir('build/install/desktop/lib').asFile.absolutePath,
+            '--main-jar', 'desktop.jar',
+            '--main-class', 'com.game.cardgame.desktop.DesktopLauncher',
+            '--dest', rootProject.file('打包成品').absolutePath,
+            '--java-options', '-Xmx2g'
+
+    doLast {
+        // jpackage 生成的是 打包成品/CardBattle，改名成"Linux版"，和 Windows版 并排放在一起
+        def src = rootProject.file('打包成品/CardBattle')
+        def dst = rootProject.file('打包成品/Linux版')
+        if (src.exists()) {
+            src.renameTo(dst)
+        }
+        println "Linux 版已输出到：${dst}/bin/CardBattle"
+    }
+}
+
+tasks.named('run') {
+    // libGDX 在桌面上用 Gdx.files.internal("xxx") 找文件时是相对"工作目录"的，
+    // 所以要切到素材目录去。
+    workingDir = assetsDir
+    ignoreExitValue = true
+}

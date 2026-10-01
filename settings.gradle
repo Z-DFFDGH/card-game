@@ -1,0 +1,31 @@
+// /home/djx/game/settings.gradle
+// 作用：声明这是多模块工程 + 声明去哪里下载插件和依赖。
+//
+// 仓库顺序说明：阿里云镜像放最前面（国内快），官方源放后面兜底。
+// 已实测：阿里云 google 镜像有 AGP 和 androidx，public 镜像有 libGDX。
+
+pluginManagement {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }        // AGP / androidx
+        maven { url 'https://maven.aliyun.com/repository/public' }        // Maven Central 加速
+        maven { url 'https://maven.aliyun.com/repository/gradle-plugin' } // Gradle 插件门户加速
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        maven { url 'https://maven.aliyun.com/repository/google' }
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'card-game'
+
+include 'core'     // 游戏本体：逻辑 + 渲染，三端共用
+include 'desktop'  // 桌面(LWJGL3)启动器，本机快速看画面用
+include 'android'  // Android APK 模块
